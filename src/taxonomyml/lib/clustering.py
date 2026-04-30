@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # coding: utf-8
 
-"""Create clustering model using HDBScan and AgglomerativeClustering models with embeddings"""
+"""Create clustering model using DBScan and AgglomerativeClustering models with embeddings"""
 
 import concurrent.futures
 import math
@@ -13,12 +13,11 @@ import numpy as np
 import pandas as pd
 import torch
 import umap.umap_ as umap
-from hdbscan import HDBSCAN
 from kneed import KneeLocator
 from loguru import logger
 from numba.core.errors import NumbaDeprecationWarning
 from sentence_transformers import CrossEncoder, SentenceTransformer
-from sklearn.cluster import OPTICS, AgglomerativeClustering
+from sklearn.cluster import DBSCAN, OPTICS, AgglomerativeClustering
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import silhouette_samples
 from sklearn.metrics.pairwise import cosine_similarity
@@ -43,7 +42,7 @@ class ClusterTopics:
         min_cluster_size: int = 10,
         min_samples: Union[int, bool] = None,
         reduction_dims: Union[int, float] = 0,
-        cluster_model: str = "hdbscan",
+        cluster_model: str = "dbscan",
         use_llm_descriptions: bool = False,
         cluster_categories: List[str] = None,
         use_elbow: bool = True,
@@ -183,17 +182,16 @@ class ClusterTopics:
 
         logger.info("Cluster Model: {}".format(model_name))
 
-        if model_name == "hdbscan":
+        if model_name == "dbscan":
             # Normalize embeddings
             self.model_data = self.embeddings / np.linalg.norm(
                 self.embeddings, axis=1, keepdims=True
             )
 
-            return HDBSCAN(
+            return DBSCAN(
                 min_samples=self.min_samples,
-                min_cluster_size=self.min_cluster_size,
-                cluster_selection_epsilon=self.get_elbow(self.model_data),
-                core_dist_n_jobs=self.n_jobs,
+                eps=self.get_elbow(self.model_data),
+                n_jobs=self.n_jobs,
             )
 
         elif model_name == "agglomerative":
@@ -235,9 +233,9 @@ class ClusterTopics:
             )
 
         else:
-            logger.error("Only `hdbscan` and `agglomerative` are implemented.")
+            logger.error("Only `dbscan` and `agglomerative` are implemented.")
             raise NotImplementedError(
-                "Only `hdbscan`, `optics`, and `agglomerative` are implemented."
+                "Only `dbscan`, `optics`, and `agglomerative` are implemented."
             )
 
     def top_ngram_embeddings(

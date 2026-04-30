@@ -369,7 +369,7 @@ def add_categories_clustered(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
         reduction_dims=2,
-        cluster_model="hdbscan",
+        cluster_model="dbscan",
         cluster_categories=structure_parts,
         keep_outliers=True,
         openai_api_key=openai_api_key,

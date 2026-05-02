@@ -78,8 +78,11 @@ def get_openai_response_chat(
         return get_openai_response(messages, model=model, openai_api_key=openai_api_key)
 
     except RetryError as e:
-        logger.error("API Retry Error: " + str(e))
-        raise APIError(str(e))
+        # Extract the actual error from the last retry attempt
+        last_error = e.last_attempt.exception() if e.last_attempt else e
+        error_msg = f"OpenAI API failed after {settings.API_RETRY_ATTEMPTS} retries. Model: '{model}'. Error: {last_error}"
+        logger.error(error_msg)
+        raise APIError(error_msg)
 
 
 def get_openai_embeddings(

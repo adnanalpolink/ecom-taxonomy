@@ -34,8 +34,6 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-install.log
-install.log
 
 # Unit test / coverage reports
 htmlcov/
@@ -173,3 +171,14 @@ cython_debug/
 
 # Old files
 old/
+
+# Node / Next.js (not used)
+node_modules/
+.next/
+package-lock.json
+
+# Poetry (removed)
+poetry.lock
+
+# Streamlit
+.streamlit/secrets.toml

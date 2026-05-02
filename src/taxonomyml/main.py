@@ -145,7 +145,7 @@ def score_and_filter_df(
     df_knee = df_ngram.copy()
     sensitivity = settings.MAX_SAMPLES
     increment = 20
-
+    
     # Filter by knee
     while sensitivity >= 0 and len(df_knee) > settings.MAX_SAMPLES:
         df_knee = filter_knee(df_ngram.copy(), col_name="score", knee_s=sensitivity)
@@ -156,15 +156,11 @@ def score_and_filter_df(
             f"Filtered Knee (sensitivity={int(sensitivity + increment)}). Dataframe shape: {df_knee.shape}"
         )
     else:
-        logger.warning(
-            f"Warning: Could not filter by knee. Using top {settings.MAX_SAMPLES}."
-        )
+        logger.warning(f"Warning: Could not filter by knee. Using top {settings.MAX_SAMPLES}.")
         df_knee = df_ngram.head(settings.MAX_SAMPLES).copy()
 
     if len(df_knee) < settings.MIN_SAMPLES:
-        logger.warning(
-            f"Warning: Could not filter by knee. Using top {settings.MIN_SAMPLES}."
-        )
+        logger.warning(f"Warning: Could not filter by knee. Using top {settings.MIN_SAMPLES}.")
         df_knee = df_ngram.head(settings.MIN_SAMPLES).copy()
 
     logger.info(f"Final score and filter length: {len(df_knee)}")
@@ -252,10 +248,8 @@ def create_taxonomy(
     logger.info("Filtering Query Data.")
     df_ngram = score_and_filter_df(df, ngram_range=ngram_range, min_df=min_df)
     logger.info(f"Got ngram frequency. Dataframe shape: {df_ngram.shape}")
-    query_data = (
-        df_ngram.head(settings.MAX_SAMPLES)[["query", "score"]]
-        .rename(columns={"query": "Query", "score": "Score"})
-        .to_markdown(index=False, floatfmt=".4f")
+    query_data = df_ngram.head(settings.MAX_SAMPLES)[["query", "score"]].to_markdown(
+        index=None
     )
 
     logger.info(f"Got query data as markdown. Length: {len(query_data)}")
@@ -303,7 +297,6 @@ def create_taxonomy(
         df,
         cluster_embeddings_model=cluster_embeddings_model,
         cross_encoded=cross_encoded,
-        openai_api_key=openai_api_key,
         **kwargs,
     )
 
@@ -369,7 +362,7 @@ def add_categories_clustered(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
         reduction_dims=2,
-        cluster_model="dbscan",
+        cluster_model="hdbscan",
         cluster_categories=structure_parts,
         keep_outliers=True,
         openai_api_key=openai_api_key,

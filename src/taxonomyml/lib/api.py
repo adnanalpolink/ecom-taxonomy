@@ -20,7 +20,7 @@ from taxonomyml.exceptions import APIError, MissingAPIKeyError, OpenAIError
 
 
 def _get_client(openai_api_key: str | None = None) -> OpenAI:
-    """Build an OpenAI client using the provided key or the project default."""
+    """Create an OpenAI client instance."""
     api_key = openai_api_key or settings.OPENAI_API_KEY
     if not api_key:
         raise MissingAPIKeyError()
@@ -33,18 +33,19 @@ def _get_client(openai_api_key: str | None = None) -> OpenAI:
 )
 def get_openai_response(
     messages: List[dict],
-    model: str = settings.OPENAI_QUALITY_MODEL,
+    model: str = "gpt-5.4-mini",
     openai_api_key: str | None = None,
 ) -> Union[str, None]:
     """Get a response from OpenAI's API."""
 
+    client = _get_client(openai_api_key)
+
     try:
-        client = _get_client(openai_api_key)
         chat_completion = client.chat.completions.create(
             model=model,
             messages=messages,
             timeout=settings.OPENAI_REQUEST_TIMEOUT,
-            max_tokens=6000 if "-16k" in model else 2000,
+            max_tokens=4096,
             frequency_penalty=0.2,
             temperature=0.0,
             n=1,

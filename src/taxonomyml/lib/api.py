@@ -45,7 +45,7 @@ def get_openai_response(
             model=model,
             messages=messages,
             timeout=settings.OPENAI_REQUEST_TIMEOUT,
-            max_tokens=4096,
+            max_completion_tokens=4096,
             frequency_penalty=0.2,
             temperature=0.0,
             n=1,

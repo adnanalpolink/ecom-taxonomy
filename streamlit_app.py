@@ -363,6 +363,6 @@ if run_clicked and can_run:
 # ── Footer ───────────────────────────────────────────────────────────────────
 st.divider()
 st.caption(
-    "Powered by [TaxonomyML](https://github.com/locomotive-agency/taxonomyml) · "
-    "Open-sourced by [Locomotive Agency](https://locomotive.agency/)"
+    "Powered by [TaxonomyML](https://github.com/adnanalpolink/ecom-taxonomy) · "
+    "Created by Adnan Akram"
 )

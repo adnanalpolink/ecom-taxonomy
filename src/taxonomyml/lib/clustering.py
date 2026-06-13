@@ -481,6 +481,8 @@ class ClusterTopics:
         logger.info("Getting embeddings.")
         if self.embeddings is None:
             embeddings = self.get_embeddings(corpus_array)
+        else:
+            embeddings = self.embeddings
 
         if categories:
             self.cluster_categories = categories

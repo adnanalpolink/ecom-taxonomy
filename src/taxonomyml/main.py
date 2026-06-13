@@ -7,6 +7,7 @@ import pandas as pd
 from loguru import logger
 
 from taxonomyml import settings
+from taxonomyml.exceptions import APIError
 from taxonomyml.lib import gsc
 from taxonomyml.lib.api import get_openai_response_chat
 from taxonomyml.lib.clustering import ClusterTopics
@@ -264,6 +265,10 @@ def create_taxonomy(
         prompt, model=settings.OPENAI_LARGE_MODEL, openai_api_key=openai_api_key
     )
 
+    if not response:
+        logger.error("No response from API.")
+        raise APIError("OpenAI returned an empty taxonomy response.")
+
     logger.info("Reviewing OpenAI's work.")
     prompt = PROMPT_TEMPLATE_TAXONOMY_REVIEW.format(
         taxonomy=response, brands=brand_terms
@@ -272,9 +277,9 @@ def create_taxonomy(
         prompt, model=settings.OPENAI_LARGE_MODEL, openai_api_key=openai_api_key
     )
 
-    if not response or not reviewed_response:
+    if not reviewed_response:
         logger.error("No response from API.")
-        return None
+        raise APIError("OpenAI returned an empty taxonomy-review response.")
 
     if debug_responses:
         logger.info("Debugging responses.")
@@ -297,6 +302,7 @@ def create_taxonomy(
         df,
         cluster_embeddings_model=cluster_embeddings_model,
         cross_encoded=cross_encoded,
+        openai_api_key=openai_api_key,
         **kwargs,
     )
 

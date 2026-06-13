@@ -225,7 +225,7 @@ def clean_gsc_dataframe(
     df["query"] = df["query"].str.lower()
 
     # Remove non-english characters from query
-    df["query"] = df["query"].str.replace(r"[^a-zA-Z0-9\s]", "")
+    df["query"] = df["query"].str.replace(r"[^a-zA-Z0-9\s]", " ", regex=True)
 
     # Trim whitespace from query
     df["query"] = df["query"].str.strip()
@@ -279,7 +279,7 @@ def clean_provided_dataframe(
         )
 
     # Remove non-english characters from query using regex: [^a-zA-Z0-9\s]
-    df.loc[:, "query"] = df["query"].str.replace(r"[^a-zA-Z0-9\s]", "")
+    df.loc[:, "query"] = df["query"].str.replace(r"[^a-zA-Z0-9\s]", " ", regex=True)
 
     # Trim whitespace from query
     df.loc[:, "query"] = df["query"].str.strip()

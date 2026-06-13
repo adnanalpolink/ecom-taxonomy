@@ -39,6 +39,71 @@ def get_gsc_credentials_from_secrets() -> dict | None:
         return None
 
 
+# ── Google OAuth ("Sign in with Google") ─────────────────────────────────────
+GSC_OAUTH_SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
+
+
+def get_gsc_oauth_config() -> dict | None:
+    """Read the OAuth web-client config from st.secrets['gsc_oauth'].
+
+    Requires client_id, client_secret, and redirect_uri. Returns None if the
+    block is absent or incomplete (in which case the OAuth option is hidden).
+    """
+    try:
+        cfg = dict(st.secrets["gsc_oauth"])
+    except Exception:
+        return None
+    if not {"client_id", "client_secret", "redirect_uri"}.issubset(cfg):
+        return None
+    return cfg
+
+
+def build_oauth_manager(cfg: dict):
+    """Construct a GoogleOAuthManager from the secrets config (imported lazily)."""
+    from taxonomyml.lib import gauth
+
+    return gauth.GoogleOAuthManager(
+        scopes=GSC_OAUTH_SCOPES,
+        client_id=cfg["client_id"],
+        client_secret=cfg["client_secret"],
+        redirect_uri=cfg["redirect_uri"],
+    )
+
+
+def handle_gsc_oauth(cfg: dict) -> bool:
+    """Render the Google sign-in UI. Returns True when authenticated this session.
+
+    The ?code= exchange itself happens in the early redirect handler below, so
+    this only shows status (signed in / sign-in button / any prior error).
+    """
+    err = st.session_state.pop("gsc_oauth_error", None)
+    if err:
+        st.error(f"Google sign-in failed: {err}")
+
+    if st.session_state.get("gsc_oauth_manager") is not None:
+        st.success("Signed in with Google.", icon="✅")
+        if st.button("Sign out of Google", key="gsc_oauth_signout"):
+            st.session_state.pop("gsc_oauth_manager", None)
+            st.session_state.pop("gsc_force_oauth", None)
+            st.rerun()
+        return True
+
+    try:
+        auth_url, _state = build_oauth_manager(cfg).get_auth_url()
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Could not start Google sign-in: {e}")
+        return False
+
+    st.info(
+        "Sign in with the Google account that has access to your Search Console property.",
+        icon="🔐",
+    )
+    st.link_button(
+        "🔓  Sign in with Google", auth_url, use_container_width=True, type="primary"
+    )
+    return False
+
+
 # ── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="TaxonomyML — Auto Taxonomy Builder",
@@ -58,6 +123,27 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# ── OAuth redirect handler ───────────────────────────────────────────────────
+# After consent, Google redirects to the app URL with ?code=... A redirect can
+# start a fresh Streamlit session, so complete the token exchange here — before
+# any widgets render — rather than depending on widget/session state.
+_oauth_cfg = get_gsc_oauth_config()
+if (
+    _oauth_cfg
+    and st.query_params.get("code")
+    and st.session_state.get("gsc_oauth_manager") is None
+):
+    try:
+        _mgr = build_oauth_manager(_oauth_cfg)
+        _mgr.fetch_token(st.query_params["code"])
+        _mgr.authorize()  # materialize credentials
+        st.session_state["gsc_oauth_manager"] = _mgr
+        st.session_state["gsc_force_oauth"] = True
+    except Exception as e:  # noqa: BLE001
+        st.session_state["gsc_oauth_error"] = str(e)
+    st.query_params.clear()  # strip OAuth params so a refresh won't re-exchange
+    st.rerun()
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -159,26 +245,58 @@ if data_source == "CSV Upload":
 gsc_property = None
 gsc_credentials_file = None
 gsc_credentials_from_secrets = None
+gsc_auth_method = "Service Account JSON"
+gsc_oauth_ready = False
 gsc_days = 30
 
 if data_source == "Google Search Console":
     st.header("🔍 Google Search Console")
 
-    # Check if credentials are in secrets
-    gsc_credentials_from_secrets = get_gsc_credentials_from_secrets()
+    # Offer "Sign in with Google" only when an OAuth client is configured.
+    oauth_cfg = get_gsc_oauth_config()
+    auth_options = ["Service Account JSON"]
+    if oauth_cfg:
+        auth_options.append("Sign in with Google")
 
-    if gsc_credentials_from_secrets:
-        st.success("GSC service account loaded from Streamlit Secrets.", icon="✅")
+    if len(auth_options) > 1:
+        default_idx = 0
+        if st.session_state.get("gsc_oauth_manager") or st.session_state.get(
+            "gsc_force_oauth"
+        ):
+            default_idx = auth_options.index("Sign in with Google")
+        gsc_auth_method = st.radio(
+            "Authentication method",
+            options=auth_options,
+            index=default_idx,
+            horizontal=True,
+            help="Service Account = JSON key (upload or secrets). "
+            "Sign in with Google = OAuth consent with your own account.",
+        )
     else:
-        st.info(
-            "Upload a **service account JSON** file, or add it to your "
-            "[Streamlit Secrets](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management) "
-            "under the key `[gsc_credentials]`.",
-            icon="ℹ️",
+        gsc_auth_method = "Service Account JSON"
+        st.caption(
+            "Tip: add a `[gsc_oauth]` block to your Secrets to enable "
+            "‘Sign in with Google’."
         )
-        gsc_credentials_file = st.file_uploader(
-            "Service Account JSON", type=["json"]
-        )
+
+    if gsc_auth_method == "Sign in with Google":
+        gsc_oauth_ready = handle_gsc_oauth(oauth_cfg)
+    else:
+        # Check if a service account is in secrets
+        gsc_credentials_from_secrets = get_gsc_credentials_from_secrets()
+
+        if gsc_credentials_from_secrets:
+            st.success("GSC service account loaded from Streamlit Secrets.", icon="✅")
+        else:
+            st.info(
+                "Upload a **service account JSON** file, or add it to your "
+                "[Streamlit Secrets](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management) "
+                "under the key `[gsc_credentials]`.",
+                icon="ℹ️",
+            )
+            gsc_credentials_file = st.file_uploader(
+                "Service Account JSON", type=["json"]
+            )
 
     gsc_property = st.text_input(
         "GSC Property URL",
@@ -228,7 +346,11 @@ elif data_source == "CSV Upload" and csv_file is None:
     st.warning("Upload a **CSV file** above to continue.", icon="📄")
 elif data_source == "Google Search Console" and (
     not gsc_property
-    or (gsc_credentials_file is None and gsc_credentials_from_secrets is None)
+    or not (
+        gsc_oauth_ready
+        or gsc_credentials_file is not None
+        or gsc_credentials_from_secrets is not None
+    )
 ):
     st.warning("Provide **GSC credentials and property URL** above.", icon="🔍")
 else:
@@ -277,24 +399,34 @@ if run_clicked and can_run:
                 st.write("🔐 Setting up Google Auth…")
                 from taxonomyml.lib import gsc as gsc_module, gauth
 
-                # Resolve credentials: secrets → uploaded file
-                if gsc_credentials_from_secrets:
-                    cred_dict = gsc_credentials_from_secrets
+                tmp_cred_name = None
+                if gsc_auth_method == "Sign in with Google":
+                    auth_manager = st.session_state.get("gsc_oauth_manager")
+                    if auth_manager is None:
+                        raise RuntimeError(
+                            "Not signed in with Google. Click ‘Sign in with Google’ first."
+                        )
                 else:
-                    cred_bytes = gsc_credentials_file.read()
-                    cred_dict = json.loads(cred_bytes)
+                    # Resolve credentials: secrets → uploaded file
+                    if gsc_credentials_from_secrets:
+                        cred_dict = gsc_credentials_from_secrets
+                    else:
+                        cred_bytes = gsc_credentials_file.read()
+                        cred_dict = json.loads(cred_bytes)
 
-                # Write to temp file (google-auth requires a file path)
-                tmp_cred = tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".json", mode="w"
-                )
-                json.dump(cred_dict, tmp_cred)
-                tmp_cred.close()
+                    # Write to temp file (google-auth requires a file path)
+                    tmp_cred = tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".json", mode="w"
+                    )
+                    json.dump(cred_dict, tmp_cred)
+                    tmp_cred.close()
+                    tmp_cred_name = tmp_cred.name
 
-                auth_manager = gauth.GoogleServiceAccManager(
-                    scopes=["https://www.googleapis.com/auth/webmasters.readonly"],
-                    credentials_path=tmp_cred.name,
-                )
+                    auth_manager = gauth.GoogleServiceAccManager(
+                        scopes=["https://www.googleapis.com/auth/webmasters.readonly"],
+                        credentials_path=tmp_cred_name,
+                    )
+
                 gsc_client = gsc_module.GoogleSearchConsole(auth_manager=auth_manager)
 
                 st.write("🧠 Running TaxonomyML pipeline…")
@@ -315,7 +447,8 @@ if run_clicked and can_run:
                 )
 
                 # Clean up temp file
-                os.unlink(tmp_cred.name)
+                if tmp_cred_name:
+                    os.unlink(tmp_cred_name)
 
             status.update(label="✅ Taxonomy generated!", state="complete")
 

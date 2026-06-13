@@ -45,12 +45,12 @@ class GoogleOAuthManager(GoogleAuthManagerBase):
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
         self.app_config = {
-            "installed": {
+            "web": {
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
-                "redirect_uris": [],
+                "redirect_uris": [self.redirect_uri],
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://accounts.google.com/o/oauth2/token",
+                "token_uri": "https://oauth2.googleapis.com/token",
             }
         }
         self.flow = Flow.from_client_config(

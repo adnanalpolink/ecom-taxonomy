@@ -34,6 +34,13 @@ auth_uri = "https://accounts.google.com/o/oauth2/auth"
 token_uri = "https://oauth2.googleapis.com/token"
 auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
 client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/..."
+
+# Optional: "Sign in with Google" (OAuth) instead of a service account.
+# When present, a "Sign in with Google" option appears in the GSC section.
+[gsc_oauth]
+client_id = "xxxxxxxx.apps.googleusercontent.com"
+client_secret = "your-oauth-client-secret"
+redirect_uri = "https://your-app.streamlit.app/"
 ```
 
 ### 4. Done! Your app is live.
@@ -51,12 +58,37 @@ streamlit run streamlit_app.py
 
 ## Connecting Google Search Console
 
+There are two ways to authenticate. **Service account** is simplest for shared/deployed
+use; **OAuth ("Sign in with Google")** lets each user log in with their own account and
+see every property they already have access to.
+
+### Option 1 — Service account (default)
+
 1. **Create a Google Cloud project** at [console.cloud.google.com](https://console.cloud.google.com/)
 2. **Enable the Search Console API** — Go to *APIs & Services → Library*, search for "Google Search Console API", and enable it
 3. **Create a Service Account** — Go to *APIs & Services → Credentials → Create Credentials → Service Account*
 4. **Download the JSON key** — Click the service account → *Keys* tab → *Add Key → JSON*
 5. **Grant access in GSC** — Go to [Search Console](https://search.google.com/search-console) → *Settings → Users and permissions → Add User* → paste the `client_email` from the JSON → set permission to **Full**
 6. **Use in the app** — Upload the JSON file in the app, or paste it into Streamlit Cloud Secrets under `[gsc_credentials]`
+
+### Option 2 — "Sign in with Google" (OAuth)
+
+1. **Enable the Search Console API** (same as above) in your Google Cloud project.
+2. **Configure the OAuth consent screen** — *APIs & Services → OAuth consent screen*.
+   Choose **External**, add the `…/auth/webmasters.readonly` scope, and add yourself
+   (and any colleagues) as **Test users**. This scope is *sensitive*, so until the app
+   passes Google verification, only listed test users can sign in.
+3. **Create an OAuth client ID** — *APIs & Services → Credentials → Create Credentials →
+   OAuth client ID → Web application*. Under **Authorized redirect URIs**, add your app
+   URL exactly, e.g. `https://your-app.streamlit.app/` (the trailing slash must match
+   what you put in secrets).
+4. **Add the client to Secrets** — paste `client_id`, `client_secret`, and `redirect_uri`
+   into a `[gsc_oauth]` block (see the Secrets example above).
+5. **Use in the app** — in the GSC section, pick **Sign in with Google**, click the
+   button, approve consent, and you'll be redirected back already signed in.
+
+> The OAuth scope is **read-only** (`webmasters.readonly`) — the app can only read
+> query/page data, never modify your Search Console.
 
 ---
 

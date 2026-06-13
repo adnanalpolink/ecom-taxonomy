@@ -68,17 +68,19 @@ class ClusterTopics:
         self.use_elbow = use_elbow
         self.keep_outliers = keep_outliers
         self.n_jobs = n_jobs
+        self.openai_api_key = (
+            openai_api_key if openai_api_key else settings.OPENAI_API_KEY
+        )
         self.embeddings = None
-        self.embedding_size = self.get_embeddings(["test"])[0].shape[0]
         self.corpus = None
+        # NOTE: computes the embedding dimension, so it must run after
+        # openai_api_key/corpus are set (get_embeddings reads both).
+        self.embedding_size = self.get_embeddings(["test"])[0].shape[0]
         self.labels = None
         self.text_labels = None
         self.model = None
         self.model_data = None
         self.post_process = None
-        self.openai_api_key = (
-            openai_api_key if openai_api_key else settings.OPENAI_API_KEY
-        )
 
     def get_embeddings(self, sentences: List[str]) -> np.ndarray:
         """Converts text to embeddings"""
